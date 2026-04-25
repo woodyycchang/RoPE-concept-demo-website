@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RoPE · An interactive explainer</title>
+
+<!-- Distinctive type pairing: Fraunces (editorial serif) + Manrope (refined sans) + JetBrains Mono — bundled locally for offline use -->
+<link rel="stylesheet" href="vendor/fonts/fonts.css" />
+
+<!-- KaTeX for clean math rendering — bundled locally for offline use -->
+<link rel="stylesheet" href="vendor/katex/katex.min.css" />
+<script src="vendor/katex/katex.min.js"></script>
+<script src="vendor/katex/auto-render.min.js"></script>
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<!-- ================= THEME TOGGLE ================= -->
+<div class="theme-toggle" role="group" aria-label="Theme">
+  <button id="theme-day" class="active" aria-label="Day theme" title="Day">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M4.93 19.07l1.41-1.41 M17.66 6.34l1.41-1.41" />
+    </svg>
+  </button>
+  <button id="theme-night" aria-label="Night theme" title="Night">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  </button>
+</div>
+
+<!-- ================= BACKDROP ================= -->
+<div class="grain" aria-hidden="true"></div>
+<div class="radial-glow" aria-hidden="true"></div>
+
+<!-- ================= HEADER ================= -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="kicker">Cornell CS 4782 / 5782 · Extra Credit Demo · yc2998</div>
+    <h1 class="title">
+      <span class="title-line-1">Rotary Position Embedding</span>
+      <span class="title-line-2"><em>Position as angle.</em></span>
+    </h1>
+    <p class="hero-lede">
+      RoPE encodes token position by <strong>rotating</strong> query &amp; key vectors
+      in a plane — not by adding to them. This page unpacks <em>why</em>, one panel at a time.
+    </p>
+    <div class="hero-nav">
+      <a href="#panel-0" class="chip"><span class="chip-num">00</span>The problem</a>
+      <a href="#panel-1" class="chip"><span class="chip-num">01</span>The rotation</a>
+      <a href="#panel-2" class="chip"><span class="chip-num">02</span>Many frequencies</a>
+      <a href="#panel-3" class="chip"><span class="chip-num">03</span>Relative magic</a>
+    </div>
+  </div>
+  <div class="hero-orbit" aria-hidden="true">
+    <canvas id="hero-canvas" width="420" height="420"></canvas>
+  </div>
+</header>
+
+<!-- ================= PANEL 0 — THE PROBLEM ================= -->
+<section id="panel-0" class="panel">
+  <div class="panel-head">
+    <div class="panel-num">00</div>
+    <div>
+      <h2>Why do we need this at all?</h2>
+      <p class="panel-sub">
+        Raw attention is <em>order-blind</em>. It treats a sentence as a set,
+        not a sequence — so "<span class="mono-text">the dog bit the man</span>"
+        and "<span class="mono-text">the man bit the dog</span>" look identical
+        to it. Before we fix it with rotations, let's see the bug with our own eyes.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <div class="canvas-wrap wide center-canvas">
+      <canvas id="p0-canvas" width="720" height="460"></canvas>
+      <div class="canvas-caption">
+        Tokens above · attention matrix below. Darker cell = token-row attends more to token-col.
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <div class="control-label">
+          <span>Demonstration</span>
+        </div>
+        <div class="button-row">
+          <button id="p0-shuffle" class="action-btn">⇅  Shuffle tokens</button>
+          <button id="p0-reset" class="action-btn secondary">Reset</button>
+        </div>
+        <div class="control-hint">
+          Shuffle, and notice the attention values just permute around.
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="switch">
+          <input id="p0-pe" type="checkbox" />
+          <span class="switch-slider"></span>
+          <span class="switch-text">Inject positional info</span>
+        </label>
+        <div class="control-hint">
+          Turn on, then shuffle again — now the values actually change.
+        </div>
+      </div>
+
+      <div class="aha">
+        <div class="aha-label">the setup</div>
+        <p>
+          Position info has to come from <strong>somewhere</strong>. The original
+          transformer <em>added</em> a vector. RoPE <em>rotates</em> instead —
+          and that turns out to work much better.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PANEL 1 ================= -->
+<section id="panel-1" class="panel">
+  <div class="panel-head">
+    <div class="panel-num">01</div>
+    <div>
+      <h2>The rotation idea</h2>
+      <p class="panel-sub">
+        Think of a 2-D query vector $\mathbf{q}\in\mathbb{R}^2$. RoPE at position $m$
+        rotates it by angle $m\theta$:
+        $$\mathbf{q}_m \;=\; R(m\theta)\,\mathbf{q}
+        \;=\;\begin{bmatrix}\cos m\theta&-\sin m\theta\\ \sin m\theta&\cos m\theta\end{bmatrix}\mathbf{q}$$
+        The position is the <em>amount of rotation</em>. Nothing more.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <div class="canvas-wrap">
+      <canvas id="p1-canvas" width="640" height="640"></canvas>
+      <div class="canvas-caption">
+        <span class="dot dot-q"></span>Query $\mathbf{q}$ at position $m$
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <div class="control-label">
+          <span>Position <em>m</em></span>
+          <span class="control-val" id="p1-m-val">0</span>
+        </div>
+        <input id="p1-m" type="range" min="0" max="32" step="0.1" value="0" />
+      </div>
+
+      <div class="aha">
+        <div class="aha-label">aha</div>
+        <p>
+          Position $m$ becomes angle $m\theta$. Farther tokens = bigger rotation.
+          Nothing is added to the vector — only its <em>direction</em> changes.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PANEL 2 ================= -->
+<section id="panel-2" class="panel">
+  <div class="panel-head">
+    <div class="panel-num">02</div>
+    <div>
+      <h2>Many frequencies at once</h2>
+      <p class="panel-sub">
+        Real embeddings aren't 2-D. RoPE chops a $d$-dim vector into $d/2$ planes, and
+        each plane gets its <em>own</em> frequency:
+        $$\theta_i \;=\; 10000^{-2i/d},\qquad i=0,1,\dots,d/2-1$$
+        Low-index planes rotate fast (fine-grained position), high-index planes rotate slowly (coarse).
+      </p>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <div class="canvas-wrap wide">
+      <canvas id="p2-canvas" width="720" height="360"></canvas>
+      <div class="canvas-caption">$d=8$, so $4$ rotating planes — each pair of dimensions.</div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <div class="control-label">
+          <span>Position <em>m</em></span>
+          <span class="control-val" id="p2-m-val">0</span>
+        </div>
+        <input id="p2-m" type="range" min="0" max="128" step="0.25" value="0" />
+      </div>
+
+      <div class="aha">
+        <div class="aha-label">aha</div>
+        <p>
+          RoPE is <strong>multi-scale</strong>. Fast planes (left) track short distances;
+          slow planes (right) track long ones. One embedding, many clocks.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PANEL 3 ================= -->
+<section id="panel-3" class="panel">
+  <div class="panel-head">
+    <div class="panel-num">03</div>
+    <div>
+      <h2>Relative position, for free</h2>
+      <p class="panel-sub">
+        Here's the punchline. If you rotate $\mathbf{q}$ by $m\theta$ and $\mathbf{k}$ by $n\theta$, their dot product is:
+        $$\langle R(m\theta)\mathbf{q},\; R(n\theta)\mathbf{k}\rangle \;=\;
+        \langle\mathbf{q},\; R((n-m)\theta)\mathbf{k}\rangle$$
+        It depends <em>only</em> on $n-m$. Absolute positions cancel out. Slide both
+        $m$ and $n$ by the same amount — nothing changes.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <div class="canvas-wrap wide">
+      <canvas id="p3-canvas" width="720" height="420"></canvas>
+      <div class="canvas-caption">
+        <span class="dot dot-q"></span>$\mathbf{q}_m$
+        &nbsp;&nbsp;
+        <span class="dot dot-k"></span>$\mathbf{k}_n$
+        &nbsp;&nbsp;
+        <span class="dot dot-dot"></span>$\langle\mathbf{q}_m,\mathbf{k}_n\rangle$ over $(m-n)$
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <div class="control-label">
+          <span>Position <em>m</em> (query)</span>
+          <span class="control-val" id="p3-m-val">0</span>
+        </div>
+        <input id="p3-m" type="range" min="0" max="32" step="0.1" value="4" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Position <em>n</em> (key)</span>
+          <span class="control-val" id="p3-n-val">0</span>
+        </div>
+        <input id="p3-n" type="range" min="0" max="32" step="0.1" value="0" />
+      </div>
+
+      <div class="control-group inline">
+        <label class="switch">
+          <input id="p3-lock" type="checkbox" />
+          <span class="switch-slider"></span>
+          <span class="switch-text">Lock distance $m{-}n$</span>
+        </label>
+        <div class="control-hint">
+          Turn on, drag either slider — the dot product holds perfectly still.
+        </div>
+      </div>
+
+      <div class="readout">
+        <div class="readout-row">
+          <span class="readout-key">distance $m-n$</span>
+          <span class="readout-val" id="p3-dist">0.00</span>
+        </div>
+        <div class="readout-row">
+          <span class="readout-key">$\langle\mathbf{q}_m,\mathbf{k}_n\rangle$</span>
+          <span class="readout-val mono" id="p3-dot">0.000</span>
+        </div>
+      </div>
+
+      <div class="aha">
+        <div class="aha-label">aha</div>
+        <p>
+          This is the whole reason RoPE works. The model never sees "token #742" — it sees
+          "the other token is 3 positions away". That's what <em>translation-equivariant</em>
+          attention should do.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CLOSING ================= -->
+<footer class="outro">
+  <div class="outro-inner">
+    <h3>What to take away</h3>
+    <ol>
+      <li><strong>Rotation, not addition.</strong> RoPE multiplies by a rotation matrix — it doesn't add a bias vector.</li>
+      <li><strong>Many frequencies.</strong> Different dimension-pairs rotate at different speeds, giving the model a built-in "clock" at every scale.</li>
+      <li><strong>Relative by construction.</strong> The inner product $\langle \mathbf{q}_m, \mathbf{k}_n\rangle$ depends only on $m-n$. No separate PE parameters to learn, and the model generalizes to longer sequences than it saw in training.</li>
+    </ol>
+    <p class="credits">
+      Built for CS 4782/5782 · Spring 2026. Reference: Su et al., <em>RoFormer</em>, 2021.
+    </p>
+  </div>
+</footer>
+
+<script src="rope.js"></script>
+<script>
+  // Render all math on page load — runs after DOM is built
+  document.addEventListener("DOMContentLoaded", function () {
+    if (typeof renderMathInElement === "function") {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
+    }
+  });
+</script>
+</body>
+</html>
