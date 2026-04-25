@@ -55,7 +55,6 @@ rope-demo/
 ├── vendor/
 │   ├── katex/                      # bundled KaTeX 0.16.9
 │   └── fonts/                      # Fraunces + Manrope + JetBrains Mono
-├── yc2998_demo_rationale.pdf       # 300-word design rationale
 └── README.md                       # this file
 ```
 
