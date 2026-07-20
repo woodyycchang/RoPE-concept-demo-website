@@ -1,5 +1,7 @@
 # Rotary Position Embedding — Interactive Explainer
 
+🔗 **Live demo:** https://woodyycchang.github.io/RoPE-concept-demo-website/
+
 **Cornell CS 4782 / 5782 · Spring 2026 · Extra Credit Demo**
 **Author:** Yung-Chia Chang
 
